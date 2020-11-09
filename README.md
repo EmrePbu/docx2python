@@ -1,3 +1,5 @@
+Branch more_html: expanding html=True option
+
 # docx2python
 
 Extract docx headers, footers, text, footnotes, endnotes, properties, and images to a Python object.

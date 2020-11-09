@@ -32,6 +32,7 @@ Pass out of package with depth_collector_instance.tree.
 """
 
 from typing import Any, List
+from .text_runs import style_open, style_close
 
 
 class CaretDepthError(Exception):
@@ -41,16 +42,22 @@ class CaretDepthError(Exception):
 class DepthCollector:
     """Insert items into a tree at a consistent depth."""
 
-    def __init__(self, item_depth: int) -> None:
+    def __init__(self, item_depth: int, do_html: bool=False) -> None:
         """
         Record item depth and initiate data container.
 
         :param item_depth: content will only appear at this depth, though empty lists
             may appear above. I.e., this is how many brackets to open before inserting
             an item. E.g., item_depth = 3 => [[['item']]].
+        :param do_html: insert html when raising and lowering caret
         """
         self.item_depth = item_depth
+        self.do_html = do_html
         self.rightmost_branches = [[]]
+
+        self.para_styles = {}
+        self.open_style = []
+        self.run_style = []
 
     @property
     def tree(self) -> List:
@@ -62,6 +69,11 @@ class DepthCollector:
         """Lowest open child."""
         return self.rightmost_branches[-1]
 
+    @property
+    def caret_depth(self) -> int:
+        """How low is the caret?"""
+        return len(self.rightmost_branches)
+
     def drop_caret(self) -> None:
         """Create a new branch under caret."""
         if len(self.rightmost_branches) >= self.item_depth:
@@ -71,6 +83,12 @@ class DepthCollector:
 
     def raise_caret(self) -> None:
         """Close branch at caret and move up to parent."""
+        if self.do_html and self.caret_depth == self.item_depth:
+            suffix = style_close(self.open_style)
+            suffix += ''.join([style_close(x) for x in reversed(self.para_styles.values())])
+            self.caret[-1] = self.caret[-1] + suffix
+            self.open_style = []
+
         if len(self.rightmost_branches) == 1:
             raise CaretDepthError("will not raise caret above root")
         self.rightmost_branches = self.rightmost_branches[:-1]
@@ -82,7 +100,20 @@ class DepthCollector:
         while len(self.rightmost_branches) > depth:
             self.raise_caret()
 
-    def insert(self, item: Any) -> None:
+    def insert(self, item: str) -> None:
         """Add item at item_depth. Add branches if necessary to reach depth."""
+        if not item:
+            return
+        prefix = ''
+
+        if self.do_html:
+            if self.caret_depth != self.item_depth:
+                prefix += ''.join([style_open(x) for x in self.para_styles.values()])
+            if self.caret_depth != self.item_depth or self.run_style != self.open_style:
+                prefix += style_close(self.open_style)
+                prefix += style_open(self.run_style)
+            self.open_style = self.run_style
+        self.open_style = self.run_style
+
         self.set_caret(self.item_depth)
-        self.caret.append(item)
+        self.caret.append(prefix + item)

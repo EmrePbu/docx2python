@@ -48,6 +48,7 @@ NSMAP = {
     "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
     "cp": "http://schemas.openxmlformats.org/package/2006/metadata/core-properties",
     "dc": "http://purl.org/dc/elements/1.1/",
+    "w14": "http://schemas.microsoft.com/office/word/2010/wordml",
     "dcterms": "http://purl.org/dc/terms/",
 }
 

@@ -20,7 +20,7 @@ from .depth_collector import DepthCollector
 from .forms import get_checkBox_entry, get_ddList_entry
 from .iterators import enum_at_depth
 from .namespace import qn
-from .text_runs import get_run_style, style_close, style_open
+from .text_runs import get_run_style, style_close, style_open, get_paragraph_style
 
 TablesList = List[List[List[List[str]]]]
 
@@ -103,7 +103,7 @@ def _get_bullet_string(paragraph: ElementTree.Element, context: Dict[str, Any]) 
             numFmt = context["numId2numFmts"][numId][int(ilvl)]
         except IndexError:
             # give up and put a bullet
-            numFmt = 'bullet'
+            numFmt = "bullet"
     except (AttributeError, KeyError):
         # not a numbered paragraph
         return ""
@@ -156,8 +156,8 @@ def get_text(xml: bytes, context: Dict[str, Any]) -> TablesList:
     If you'd like to extend or edit this package, this function is probably where you
     want to do it. Nothing tricky here except keeping track of the text formatting.
     """
-    tables = DepthCollector(5)
     do_html = context["do_html"]
+    tables = DepthCollector(5, do_html=do_html)
 
     # noinspection PyPep8Naming
     def branches(branch: Element) -> None:
@@ -183,15 +183,11 @@ def get_text(xml: bytes, context: Dict[str, Any]) -> TablesList:
             # open elements
             if tag == PARAGRAPH:
                 tables.insert(_get_bullet_string(child, context))
+                tables.para_styles[child] = get_paragraph_style(child)
 
             elif tag == RUN and do_html is True:
                 # new text run
-                run_style = get_run_style(child)
-                open_style = getattr(tables, "open_style", ())
-                if run_style != open_style:
-                    tables.insert(style_close(open_style))
-                    tables.insert(style_open(run_style))
-                    tables.open_style = run_style
+                tables.run_style = get_run_style(child)
 
             elif tag == TEXT:
                 # new text object. oddly enough, these don't all contain text
@@ -247,12 +243,11 @@ def get_text(xml: bytes, context: Dict[str, Any]) -> TablesList:
             # enter child element
             branches(child)
 
-            # close elements
-            if tag == PARAGRAPH and do_html is True:
-                tables.insert(style_close(getattr(tables, "open_style", ())))
-                tables.open_style = ()
+            if tag == PARAGRAPH:
+                tables.raise_caret()
+                del tables.para_styles[child]
 
-            if tag in {TABLE_ROW, TABLE_CELL, PARAGRAPH}:
+            if tag in {TABLE_ROW, TABLE_CELL}:
                 tables.raise_caret()
 
             elif tag == TABLE:
